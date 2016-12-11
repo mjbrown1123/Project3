@@ -210,9 +210,9 @@ var pitch = parseFloat(lines.substring(indexP+1, indexR));
 var roll = parseFloat(lines.substring(indexR+1, indexA));
 
 var on = parseInt(lines.substring(indexA + 1, lines.length - 1));
+console.log(lines);
 
-
-console.log("Y: " + yaw + " P: " + pitch + " R: " + roll + " State: " + on);
+//console.log("Y: " + yaw + " P: " + pitch + " R: " + roll + " State: " + on);
 
 
 if(!(typeof stlMesh === "undefined") && on == 1) {
