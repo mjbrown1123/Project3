@@ -173,7 +173,8 @@ function setParticles() {
 }
 function draw() {
 
-  var file = "https://creativecodingvr.herokuapp.com/LEDstate.txt";
+  //var file = "https://creativecodingvr.herokuapp.com/LEDstate.txt";
+  var file = "LEDstate.txt";
 
    //= loadStrings(file);
   var allText;
