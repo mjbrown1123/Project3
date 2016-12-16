@@ -7,7 +7,6 @@ effect,
 controls,
 clock,
 
-
 // Particles
 particles = new THREE.Object3D(),
 totalParticles = 200,
@@ -17,46 +16,30 @@ particleRotationDeg = 0,
 lastColorRange = [0, 0.3],
 currentColorRange = [0, 0.3];
 
-var serial;          // variable to hold an instance of the serialport library
-var portName = '/dev/cu.usbmodem1421';  // fill in your serial port name here
-portName = 'COM6';
-var inData;
+//for making sure STL changes only occur once
+var lastChange = 0;
 
+//this is the input variable from the glove
 var lines = ""; 
 
-
-
-
+//stores the current STL mesh
 var stlMesh;
 
+//stores the index for which STL model you've loaded
 var stlIndex = 0;
 
+//stores names of the STL files you will view
 var stlFiles = ["body.STL", "tire.STL", "wheel.STL"];
 
 
+//from here until the STL loader is code taken from Ms. deBB's example (just to get me started with using the Three.js library)
 function setup() {
-
-/*
-  serial = new p5.SerialPort();       // make a new instance of the serialport library
-  serial.on('list', printList);  // set a callback function for the serialport list event
-  serial.on('connected', serverConnected); // callback for connecting to the server
-  serial.on('open', portOpen);        // callback for the port opening
-  serial.on('data', serialEvent);     // callback for when new data arrives
-  serial.on('error', serialError);    // callback for errors
-  serial.on('close', portClose);      // callback for the port closing
- 
-  serial.list();                      // list the serial ports
-
-  serial.close(portName);
-  serial.open(portName);   */           // open a serial port
 
   setScene();
 
   setControls();
 
   setLights();
-  //setFloor();
-  //setParticles();
 
   clock = new THREE.Clock();
   animate();
@@ -75,28 +58,9 @@ function setScene() {
 
   effect = new THREE.StereoEffect(renderer);
   
-    camera.position.x -= 200;
+  camera.position.x -= 200;
 }
 
-function keyPressed() {
-
-  if(keyCode === UP_ARROW) {
-
-    camera.position.x += 40;
-
-  }
-  else if(keyCode === DOWN_ARROW) {
-
-    camera.position.x -= 40;
-
-  }
-  else if(keyCode === ENTER) {
-
-    changeSTL();
-
-  }
-
-}
 
 function setLights() {
   // Lighting
@@ -124,106 +88,99 @@ function setLights() {
 scene.add( light );
 }
 
-function setFloor() {
-  var floorTexture = THREE.ImageUtils.loadTexture('textures/grass.png');
-  floorTexture.wrapS = THREE.RepeatWrapping;
-  floorTexture.wrapT = THREE.RepeatWrapping;
-  floorTexture.repeat = new THREE.Vector2(50, 50);
-  floorTexture.anisotropy = renderer.getMaxAnisotropy();
+//above code is from Ms. deBB's Three.js example
 
-  var floorMaterial = new THREE.MeshPhongMaterial({
-    color: 0xffffff,
-    specular: 0xffffff,
-    shininess: 20,
-    shading: THREE.FlatShading,
-    map: floorTexture
-  });
 
-  var geometry = new THREE.PlaneBufferGeometry(1000, 1000);
-
-  var floor = new THREE.Mesh(geometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  //scene.add(floor);
-}
-
-// ASCII file
+//initialize a new STL loader
 var loader = new THREE.STLLoader();
+
+//load the first STL file
 loadSTL(stlFiles[0]);
 
-function setParticles() {
-  var particleTexture = THREE.ImageUtils.loadTexture('textures/particle.png'),
-  spriteMaterial = new THREE.SpriteMaterial({
-    map: particleTexture,
-    color: 0xffffff
-  });
-
-  for (var i = 0; i < totalParticles; i++) {
-    var sprite = new THREE.Sprite(spriteMaterial);
-
-    sprite.scale.set(64, 64, 1.0);
-    sprite.position.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.75);
-    sprite.position.setLength(maxParticleSize * Math.random());
-
-    sprite.material.blending = THREE.AdditiveBlending;
-
-    particles.add(sprite);
-  }
-  particles.position.y = 70;
-  //scene.add(particles);
-}
+//using p5 draw function
 function draw() {
 
-  //var file = "https://creativecodingvr.herokuapp.com/LEDstate.txt";
+  //the file name on the server
   var file = "LEDstate.txt";
 
-   //= loadStrings(file);
-  var allText;
-
+  //initialize new XMLHttpRequest
   var txtFile = new XMLHttpRequest();
-txtFile.open("GET", file, true);
-txtFile.onreadystatechange = function() {
-  if (txtFile.readyState === 4) {  // Makes sure the document is ready to parse.
-    if (txtFile.status === 200) {  // Makes sure it's found the file.
+
+  //open the text file on the server using the get request
+  txtFile.open("GET", file, true);
+
+  //when the file is ready...
+  txtFile.onreadystatechange = function() {
+  if (txtFile.readyState === 4) { 
+
+    //file is found
+    if (txtFile.status === 200) {  
+
+      //make sure the file has text in it
       if(txtFile.responseText != "") {
+
+          //if so, get the text from the file
           lines = txtFile.responseText; 
         }
-      //txtFile.responseText.split("\n"); // Will separate each line into an array
     }
   }
 }
 
-//this is necessary!
+//this is necessary! 
 txtFile.send(null);
-  
-//console.log(lines);
 
+//get the indices of markers in the string (markers = characters that indicate when next value starts)
+  // P = when pitch starts, R = when roll starts, A = when rotate button starts, B = when stl change button starts
 var indexP = lines.indexOf('P');
 var indexR = lines.indexOf('R');
 var indexA = lines.indexOf('A');
+var indexB = lines.indexOf('B');
 
+//get the yaw, pitch, roll, rotate, and stl change values from the input string
 var yaw = parseFloat(lines.substring(1, indexP));
-
-
 var pitch = parseFloat(lines.substring(indexP+1, indexR));
-
-
-//change this to be from indexR+1 to lines.length -1 if you're getting values directly from the Arduino
 var roll = parseFloat(lines.substring(indexR+1, indexA));
+var on = parseInt(lines.substring(indexA + 1, indexB));
+var stlChange = parseInt(lines.substring(indexB + 1, lines.length-1));
 
-var on = parseInt(lines.substring(indexA + 1, lines.length - 1));
+//if the last stl change was 1 and it's now 0, change the last change to 0
+   
+   //this is necessary because the controller will send multiple 1 values (which indicates when to change the STL file)
+   //if we didn't have this setting, the STL files would change several times at a time if the button is held
+   //so, we want to make sure the stl file is change only ONCE each time the button is pressed
+if(stlChange == 0 && lastChange == 1) {
+
+  lastChange = 0;
+
+}
+
+//debug the input
 console.log(lines);
 
-//console.log("Y: " + yaw + " P: " + pitch + " R: " + roll + " State: " + on);
+//if the input says to change the STL and the input didn't say to change the STL before...
+if(stlChange === 1  && lastChange != 1) {
 
+  //then change the STL!
+  changeSTL();
 
-if(!(typeof stlMesh === "undefined") && on == 1) {
+  //and flag that you just changed the STL
+  lastChange = 1;
 
-   stlMesh.rotation.x =pitch;//ma(yaw, 0,360,0, 2* Math.PI);
-   stlMesh.rotation.y = yaw;//map(pitch, 0,360,0,2 * Math.PI);
-   stlMesh.rotation.z = roll;//map(roll, 0, 360, 0, 2 * Math.PI);
+}
+
+//make sure the current STL is loaded and the user wants to rotate
+if(!(typeof stlMesh === "undefined") && on === 1) {
+
+    //set the rotation values of the mesh using the input values from the user 
+   stlMesh.rotation.x = pitch * -1;
+   stlMesh.rotation.y = yaw;
+   stlMesh.rotation.z = roll;
+
  }
 }
 
+
+//from here until loadSTL is from Ms. deBB's Three.js example so I could get accustomed to the library
 function animate() {
   var elapsedSeconds = clock.getElapsedTime(),
   particleRotationDirection = particleRotationDeg <= 180 ? -1 : 1;
@@ -239,14 +196,6 @@ function animate() {
 
     lastColorRange = currentColorRange;
   }
-
-  //this is included in case the STL file hasn't been loaded yet
-      //will return undefined if loading isn't complete
-  /*if(!(typeof stlMesh === "undefined")) {
-
-    //map the roation value from 0 to 255 (domain) to 0 to 2 * PI (range of rotation values)
-    stlMesh.rotation.y = map(inData, 0, 255, 0, 2* Math.PI);  
-  }*/
 
   //else, debug saying that the object is still undefined
   else {
@@ -343,19 +292,22 @@ function getURL(url, callback) {
   xmlhttp.send();
 }
 
+//above code is from Ms. deBB's Three.js example program
 
+
+//for loading an STL, using the inputted name of the file
 function loadSTL(name) {
 
+  //load the file!
   loader.load( "STL/" + name, function ( geometry ) {
+
+    //set initial characteristics (rotation, color, etc.)
     var material = new THREE.MeshPhongMaterial( { color: 0xff0000, specular: 0x111111, shininess: 200 } );
     stlMesh = new THREE.Mesh( geometry,material );
     stlMesh.position.set( 25, - 0.25,10);
     stlMesh.rotation.set( 0, - Math.PI, 0 );
     stlMesh.scale.set( 1, 1, 1);
-    //mesh.castShadow = true;
-    //mesh.receiveShadow = true;
     scene.add(stlMesh );
-
     camera.fov *= 1;
     camera.updateProjectionMatrix();
 
@@ -363,47 +315,21 @@ function loadSTL(name) {
 
 }
 
+//function to be called when we want to change the STL
 function changeSTL() {
 
+  //increase the current STL index
   stlIndex++;
 
+  //but if the index goes over the array length, reset the index to zero
   if(stlIndex >= stlFiles.length) {
 
     stlIndex = 0;
 
   }
 
+  //remove the old mesh and load the new one
   scene.remove(stlMesh);
-
   loadSTL(stlFiles[stlIndex]);
 
 }
-
-// get the list of ports:
-function printList(portList) {
- // portList is an array of serial port names
- for (var i = 0; i < portList.length; i++) {
- // Display the list the console:
-  console.log(i + " " + portList[i]);
- }
-}
-/*
-function serverConnected() {
-  console.log('connected to server.');
-}
- 
-function portOpen() {
-  console.log('the serial port opened.')
-}
- 
-function serialEvent() {
-  inData = serial.read();
-}
- 
-function serialError(err) {
-  console.log('Something went wrong with the serial port. ' + err);
-}
- 
-function portClose() {
-  console.log('The serial port closed.');
-}*/

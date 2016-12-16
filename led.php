@@ -1,12 +1,24 @@
+<!-- PHP file that handles get request and updates text file -->
+
 <?php
-$onoroff = $_GET["state"]; // Declares the request from index.html as a variable
-$textfile = "LEDstate.txt"; // Declares the name and location of the .txt file
- 
+
+//get the state
+$onoroff = $_GET["state"]; 
+
+//set name of text file
+$textfile = "LEDstate.txt"; 
 $fileLocation = "$textfile";
-$fh = fopen($fileLocation, 'w   ') or die("Something went wrong!"); // Opens up the .txt file for writing and replaces any previous content
-$stringToWrite = "$onoroff"; // Write either 1 or 0 depending on request from index.html
-fwrite($fh, $stringToWrite); // Writes it to the .txt file
+
+//open text file
+$fh = fopen($fileLocation, 'w   ') or die("Something went wrong!");
+
+//get the string to write to the text file
+$stringToWrite = "$onoroff"; 
+
+//write to text file, and close text file
+fwrite($fh, $stringToWrite); 
 fclose($fh); 
  
-header("Location: index.html"); // Return to frontend (index.html)
+//return to index.html
+header("Location: index.html"); 
 ?>
